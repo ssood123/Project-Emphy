@@ -1,0 +1,441 @@
+byte com = 0;
+int data[15]={};
+int curlocation=1;
+int facing=4;
+int prevnum;
+int mode;
+int turns[5]={};
+int turndir[5]={};
+int turncounter;
+int turndircounter;
+int totalsteps;
+int forwardPin=3;
+int rightPin=4;
+int leftPin=5;
+
+void setup() {
+    pinMode(A0,OUTPUT);
+    pinMode(A3,INPUT_PULLUP);
+    pinMode(A4,INPUT_PULLUP);
+    pinMode(A5,INPUT_PULLUP);
+    pinMode(2,OUTPUT);
+    digitalWrite(2,HIGH);
+    pinMode(forwardPin,OUTPUT);
+    pinMode(rightPin,OUTPUT);
+    pinMode(leftPin,OUTPUT);
+    //testing commands
+    digitalWrite(forwardPin,LOW);
+    digitalWrite(rightPin,LOW);
+    digitalWrite(leftPin,LOW);
+    //testing commands
+    pinMode(6,OUTPUT);
+    digitalWrite(6,HIGH);
+    pinMode(7,OUTPUT);
+    pinMode(8,OUTPUT);
+    pinMode(9,OUTPUT);
+    pinMode(10,OUTPUT);
+    pinMode(11,OUTPUT);
+    pinMode(12,OUTPUT);
+    pinMode(13,OUTPUT);
+    Serial.begin(9600);
+    bool voiceinput = true;
+    float heading = 0;
+    int count=0;
+    int turnnumber=0;
+    int stepnum=0;
+    while(1){
+      if(voiceinput){
+        digitalWrite(6,LOW);
+        voiceCommands();
+        voiceinput=false;
+        digitalWrite(6,HIGH);
+      }
+      if(count>300){
+        digitalWrite(forwardPin,LOW);
+        digitalWrite(rightPin,LOW);
+        digitalWrite(leftPin,LOW);
+        //delay(2000);
+        if(stepnum==totalsteps){
+          voiceinput=true;
+        }
+        count=0;
+        
+        Serial.println(stepnum);  
+        if(turnnumber<turncounter){
+          if(stepnum==turns[turnnumber]){
+            Serial.println("registering turn");
+            int turnAngle=turndir[turnnumber];
+            Serial.println(turnAngle);               
+            turnnumber=turnnumber+1;
+            heading=heading+turnAngle;
+            Serial.println(heading);
+          }
+        }
+        stepnum=stepnum+1;
+      }
+
+      while(digitalRead(A3)==1 && digitalRead(A4)==0 && digitalRead(A5)==0){
+        Serial.println("forward");
+        count=count+1;
+        digitalWrite(forwardPin,HIGH);
+        digitalWrite(rightPin,LOW);
+        digitalWrite(leftPin,LOW);
+      }
+
+      while(digitalRead(A3)==0 && digitalRead(A4)==0 && digitalRead(A5)==1){
+        Serial.println("right");
+        digitalWrite(rightPin,HIGH);
+        digitalWrite(forwardPin,LOW);
+        digitalWrite(leftPin,LOW);
+      }
+
+      while(digitalRead(A3)==0 && digitalRead(A4)==1 && digitalRead(A5)==0){
+        Serial.println("left");
+        digitalWrite(leftPin,HIGH);
+        digitalWrite(forwardPin,LOW);
+        digitalWrite(rightPin,LOW);
+      }
+    }
+
+    
+}
+
+void loop() {
+    
+}
+
+void voiceCommands(){
+  
+  Serial.write(0xAA);
+  Serial.write(0x00);//Waiting
+  delay(100);
+  Serial.write(0xAA);
+  Serial.write(0x37);//Compact mode
+  delay(100);
+  Serial.write(0xAA);
+  Serial.write(0x00);//Waiting
+  delay(100);
+  Serial.write(0xAA);
+  Serial.write(0x21);//Import group 1
+    //destinations = [start, classrooms, elevator, bathroom, auditorium]
+  while(1)
+    {
+      digitalWrite(forwardPin,LOW);
+      digitalWrite(rightPin,LOW);
+      digitalWrite(leftPin,LOW);
+      com = Serial.read();  //We receive the voice command and save it in the com byte 
+      Serial.println(com);
+      if(com == 0x11)//Command 1
+      {
+        Serial.println("Water fountain command acknowledged");
+          getPath(1);
+          break;
+        
+      }
+  
+      if(com == 0x12)//Command 2
+      {
+        Serial.println("Classroom command acknowledged");
+          getPath(2);
+          break;
+      }
+  
+      if(com == 0x13)//Command 3
+      {
+        Serial.println("Bathroom command acknowledged");
+          getPath(3);
+          break;
+      }
+  
+      if(com == 0x14)//Command 4
+      {
+        Serial.println("Elevator command acknowledged");
+          getPath(3);
+          break;
+      }
+  
+      if(com == 0x15)//Command 5
+      {
+        Serial.println("Auditorium command acknowledged");
+          getPath(5);
+          break;
+      }
+      delay(1000);
+  }
+
+}
+
+void getPath(int destlocation){
+  digitalWrite(A0,HIGH);
+  digitalWrite(7,HIGH);
+  //int facing=EEPROM.read(0);
+  //int currentlocation=EEPROM.read(1);
+  Serial.println("getting path");
+  switch (curlocation) {
+      case 1:
+        
+        digitalWrite(9, HIGH);
+        delay(1000);
+        digitalWrite(9, LOW);
+        delay(1000);
+        break;
+      case 2:
+        digitalWrite(10, HIGH);
+        delay(1000);
+        digitalWrite(10, LOW);
+        delay(1000);
+        break;
+      case 3:
+        digitalWrite(11, HIGH);
+        delay(1000);
+        digitalWrite(11, LOW);
+        delay(1000);
+        break;
+      case 4:
+        digitalWrite(12, HIGH);
+        delay(1000);
+        digitalWrite(12, LOW);
+        delay(1000);
+        break;
+      case 5:
+        digitalWrite(13, HIGH);
+        delay(1000);
+        digitalWrite(13, LOW);
+        delay(1000);
+        break;
+    }
+  
+  digitalWrite(8, HIGH);
+  switch (destlocation) {
+      
+      case 1:
+        digitalWrite(9, HIGH);
+        delay(1000);
+        digitalWrite(9, LOW);
+        delay(1000);
+        break;
+      case 2:
+        digitalWrite(10, HIGH);
+        delay(1000);
+        digitalWrite(10, LOW);
+        delay(1000);
+        break;
+      case 3:
+        digitalWrite(11, HIGH);
+        delay(1000);
+        digitalWrite(11, LOW);
+        delay(1000);
+        break;
+      case 4:
+        digitalWrite(12, HIGH);
+        delay(1000);
+        digitalWrite(12, LOW);
+        delay(1000);
+        break;
+      case 5:
+        digitalWrite(13, HIGH);
+        delay(1000);
+        digitalWrite(13, LOW);
+        delay(1000);
+        break;
+    }
+  digitalWrite(8, LOW);
+  switch (facing) {
+      case 1:
+        digitalWrite(9, HIGH);
+        delay(1000);
+        digitalWrite(9, LOW);
+        delay(1000);
+        break;
+      case 2:
+        digitalWrite(10, HIGH);
+        delay(1000);
+        digitalWrite(10, LOW);
+        delay(1000);
+        break;
+      case 3:
+        digitalWrite(11, HIGH);
+        delay(1000);
+        digitalWrite(11, LOW);
+        delay(1000);
+        break;
+      case 4:
+        digitalWrite(12, HIGH);
+        delay(1000);
+        digitalWrite(12, LOW);
+        delay(1000);
+        break;
+      case 5:
+        digitalWrite(13, HIGH);
+        delay(1000);
+        digitalWrite(13, LOW);
+        delay(1000);
+        break;
+      case 6:
+        digitalWrite(9, HIGH);
+        digitalWrite(10, HIGH);
+        delay(1000);
+        digitalWrite(9, LOW);
+        digitalWrite(10, LOW);
+        delay(1000);
+        break;
+      case 7:
+        digitalWrite(11, HIGH);
+        digitalWrite(9, HIGH);
+        delay(1000);
+        digitalWrite(11, LOW);
+        digitalWrite(9, LOW);
+        delay(1000);
+        break;
+      case 0:
+        digitalWrite(12, HIGH);
+        digitalWrite(9, HIGH);
+        delay(1000);
+        digitalWrite(12, LOW);
+        digitalWrite(9, LOW);
+        delay(1000);
+        break;  
+    }
+  
+  int communication;
+  int countdata=0;
+  while(1){    
+    communication = pathFinderRecieve();
+    
+    
+    if(communication>80 || communication<0){
+      
+      break;
+    }
+    else{
+      data[countdata]=communication;
+      countdata=countdata+1;
+    }
+  }
+  
+  Serial.println("success");
+  digitalWrite(A0,LOW); 
+  
+  totalsteps=data[0]-40;
+  Serial.println(totalsteps);
+  
+  facing=data[countdata-1]-30;
+  Serial.println(facing);
+  turncounter=0;
+  
+  turndircounter=0;
+  
+  for(int turn=1;turn<countdata-1;turn++){
+    if(data[turn]>=10){
+      turns[turncounter]=data[turn]-10;
+      Serial.println(turns[turncounter]);
+      turncounter=turncounter+1;
+    }
+    else{
+      //commandlist=[forward,0,-135,1,-90,2,-45,3,45,4,90,5,135,6,180,7]
+      int turncommand = data[turn];
+      switch (turncommand) {
+        case 1:
+          turndir[turndircounter]=-135;
+          //Serial.println(turndir[turndircounter]);
+          turndircounter=turndircounter+1;
+          break;
+        case 2:
+          turndir[turndircounter]=-90;
+          //Serial.println(turndir[turndircounter]);
+          turndircounter=turndircounter+1;
+          break;
+        case 3:
+          turndir[turndircounter]=-45;
+          //Serial.println(turndir[turndircounter]);
+          turndircounter=turndircounter+1;
+          break;
+        case 4:
+          turndir[turndircounter]=45;
+          //Serial.println(turndir[turndircounter]);
+          turndircounter=turndircounter+1;
+          break;
+        case 5:
+          turndir[turndircounter]=90;
+          //Serial.println(turndir[turndircounter]);
+          turndircounter=turndircounter+1;
+          break;
+        case 6:
+          turndir[turndircounter]=135;
+          //Serial.println(turndir[turndircounter]);
+          turndircounter=turndircounter+1;
+          break;
+        case 7:
+          turndir[turndircounter]=180;
+          //Serial.println(turndir[turndircounter]);
+          turndircounter=turndircounter+1;
+          break;
+        
+        
+      }
+      
+      
+    }
+    
+  }
+  digitalWrite(7,LOW);
+}
+
+int pathFinderRecieve(){
+  
+  int sureness=15;
+  int tries[sureness];
+  while(mode==prevnum && mode!=-1){
+      for(int t=0;t<sureness;t++){
+      tries[t]=pathFinderGet();
+    }
+    int modetimes=0;
+    
+    for(int m=0;m<sureness;m++){
+      int numtimes=0;
+      for(int c=0;c<sureness;c++){
+        if(tries[c]==tries[m]){
+          numtimes=numtimes+1;
+        }
+      }
+      if(numtimes>modetimes){
+        modetimes=numtimes;
+        mode=tries[m];
+      }
+    }
+  }
+  prevnum=mode;
+  Serial.println(mode);
+  return mode;
+}
+
+int pathFinderGet(){
+  pinMode(A1, INPUT_PULLUP);
+  pinMode(A2, INPUT_PULLUP);
+  int change=0;
+  int number=0;
+  while(1){
+    while(digitalRead(A1)==0){
+      if(change==0){
+        number=number+1;
+        change=1;
+      }
+    }
+    change=0;
+    if(digitalRead(A2)==0){
+      return number-1;
+    }
+  } 
+}
+
+void idleMotor(){
+    digitalWrite(rightPin,HIGH);
+    delay(500);
+    digitalWrite(rightPin,LOW);
+    digitalWrite(leftPin,HIGH);
+    delay(1000);
+    digitalWrite(leftPin,LOW);
+    digitalWrite(rightPin,HIGH);
+    delay(500);
+    digitalWrite(rightPin,LOW);
+}

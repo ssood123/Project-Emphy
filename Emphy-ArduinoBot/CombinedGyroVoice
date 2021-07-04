@@ -1,0 +1,651 @@
+#include "I2Cdev.h"
+
+#include "MPU6050_6Axis_MotionApps20.h"
+
+#if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
+    #include "Wire.h"
+#endif
+
+MPU6050 mpu;
+
+byte com = 0;
+int data[15]={};
+int curlocation=1;
+int facing=4;
+int prevnum;
+int mode;
+int turns[5]={};
+int turndir[5]={};
+int turncounter;
+int turndircounter;
+int totalsteps;
+int forwardPin=3;
+int rightPin=4;
+int leftPin=5;
+
+// MPU control/status vars
+bool dmpReady = false;  // set true if DMP init was successful
+uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
+uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
+uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
+uint16_t fifoCount;     // count of all bytes currently in FIFO
+uint8_t fifoBuffer[64]; // FIFO storage buffer
+
+// orientation/motion vars
+Quaternion q;           // [w, x, y, z]         quaternion container
+VectorFloat gravity;    // [x, y, z]            gravity vector
+float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
+
+
+volatile bool mpuInterrupt = false;     // indicates whether MPU interrupt pin has gone high
+void dmpDataReady() {
+    mpuInterrupt = true;
+}
+
+void setup() {
+    pinMode(A0,OUTPUT);
+    pinMode(A3, OUTPUT);
+    digitalWrite(A3,HIGH);
+    pinMode(forwardPin,OUTPUT);
+    pinMode(rightPin,OUTPUT);
+    pinMode(leftPin,OUTPUT);
+    //testing commands
+    digitalWrite(forwardPin,LOW);
+    digitalWrite(rightPin,LOW);
+    digitalWrite(leftPin,LOW);
+    //testing commands
+    pinMode(6,OUTPUT);
+    pinMode(7,OUTPUT);
+    pinMode(8,OUTPUT);
+    pinMode(9,OUTPUT);
+    pinMode(10,OUTPUT);
+    pinMode(11,OUTPUT);
+    pinMode(12,OUTPUT);
+    pinMode(13,OUTPUT);
+    // join I2C bus (I2Cdev library doesn't do this automatically)
+    #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
+        Wire.begin();
+        TWBR = 24; // 400kHz I2C clock (200kHz if CPU is 8MHz)
+    #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
+        Fastwire::setup(400, true);
+    #endif
+
+    // initialize serial communication
+    // (115200 chosen because it is required for Teapot Demo output, but it's
+    // really up to you depending on your project)
+    Serial.begin(9600);
+    while (!Serial); // wait for Leonardo enumeration, others continue immediately
+
+    // initialize device
+    Serial.println(F("Initializing I2C devices..."));
+    mpu.initialize();
+
+    // verify connection
+    Serial.println(F("Testing device connections..."));
+    Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
+
+    // load and configure the DMP
+    Serial.println(F("Initializing DMP..."));
+    devStatus = mpu.dmpInitialize();
+
+    // supply your own gyro offsets here, scaled for min sensitivity
+    mpu.setXGyroOffset(30);
+    mpu.setYGyroOffset(-64);
+    mpu.setZGyroOffset(70);
+    mpu.setZAccelOffset(1768); // 1688 factory default for my test chip
+
+    // make sure it worked (returns 0 if so)
+    if (devStatus == 0) {
+        // turn on the DMP, now that it's ready
+        Serial.println(F("Enabling DMP..."));
+        mpu.setDMPEnabled(true);
+
+        // enable Arduino interrupt detection
+        Serial.println(F("Enabling interrupt detection (Arduino external interrupt 0)..."));
+        attachInterrupt(0, dmpDataReady, RISING);
+        mpuIntStatus = mpu.getIntStatus();
+
+        // set our DMP Ready flag so the main loop() function knows it's okay to use it
+        Serial.println(F("DMP ready! Waiting for first interrupt..."));
+        dmpReady = true;
+
+        // get expected DMP packet size for later comparison
+        packetSize = mpu.dmpGetFIFOPacketSize();
+    } else {
+        // ERROR!
+        // 1 = initial memory load failed
+        // 2 = DMP configuration updates failed
+        // (if it's going to break, usually the code will be 1)
+        Serial.print(F("DMP Initialization failed (code "));
+        Serial.print(devStatus);
+        Serial.println(F(")"));
+    }
+    bool voiceinput = true;
+    bool correctRight=false;
+    bool correctLeft=false;
+    bool turnRight=false;
+    bool turnLeft=false;
+    bool forward=true;
+    bool getinitial=false;
+    float heading = 0;
+    int count=0;
+    int turnnumber=0;
+    int stepnum=0;
+    int verification=0;
+    int lastreading=0;
+    int temp = 0;
+    while(1){
+     
+        // if programming failed, don't try to do anything
+      if (!dmpReady) return;
+  
+      // wait for MPU interrupt or extra packet(s) available
+      while (!mpuInterrupt && fifoCount < packetSize) {
+      }
+  
+      // reset interrupt flag and get INT_STATUS byte
+      mpuInterrupt = false;
+      mpuIntStatus = mpu.getIntStatus();
+  
+      // get current FIFO count
+      fifoCount = mpu.getFIFOCount();
+    
+      // check for overflow (this should never happen unless our code is too inefficient)
+      if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
+          // reset so we can continue cleanly
+          mpu.resetFIFO();
+          Serial.println(F("FIFO overflow!"));
+  
+      // otherwise, check for DMP data ready interrupt (this should happen frequently)
+      } else if (mpuIntStatus & 0x02) {
+          
+          // wait for correct available data length, should be a VERY short wait
+          while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
+  
+          // read a packet from FIFO
+          mpu.getFIFOBytes(fifoBuffer, packetSize);
+          
+          // track FIFO count here in case there is > 1 packet available
+          // (this lets us immediately read more without waiting for an interrupt)
+          fifoCount -= packetSize;
+
+          
+          
+          // display Euler angles in degrees
+          mpu.dmpGetQuaternion(&q, fifoBuffer);
+          mpu.dmpGetGravity(&gravity, &q);
+          mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+          
+          if(voiceinput){
+            voiceCommands();
+            voiceinput = false;
+            correctRight=false;
+            correctLeft=false;
+            turnRight=false;
+            turnLeft=false;
+            forward=true;
+            digitalWrite(forwardPin,LOW);
+            digitalWrite(rightPin,LOW);
+            digitalWrite(leftPin,LOW);
+            count=0;
+            turnnumber=0;
+            stepnum=0;
+          }
+
+          float reading = ypr[0] * 180/M_PI;
+          
+          Serial.println(reading);
+          if(temp==0 && count==4){
+            getinitial=true;
+          }
+          if(getinitial){
+            heading=reading;
+            getinitial=false;
+          }
+
+          if(count>300){
+            if(stepnum==totalsteps){
+              voiceinput=true;
+            }
+            count=0;
+            
+            Serial.println(stepnum);  
+            if(turnnumber<turncounter){
+              if(stepnum==turns[turnnumber]){
+                Serial.println("registering turn");
+                int turnAngle=turndir[turnnumber];
+                Serial.println(turnAngle);               
+                turnnumber=turnnumber+1;
+                heading=heading+turnAngle;
+                Serial.println(heading);
+              }
+            }
+            stepnum=stepnum+1;
+          }
+          
+          if(forward){
+            //Serial.println("forward");
+            digitalWrite(forwardPin,HIGH);
+            correctRight=false;  
+            correctLeft=false;  
+            count=count+1;
+            if(reading>(20+heading)){
+                digitalWrite(forwardPin,LOW);
+                forward=false;
+                correctRight=false;
+                correctLeft=true;
+            }
+            if(reading<(heading-20)){
+                digitalWrite(forwardPin,LOW);
+                forward=false;
+                correctRight=true;
+                correctLeft=false;
+            }
+          }
+          if(correctRight){
+            //Serial.println("correctRight");
+            digitalWrite(rightPin,HIGH);
+            if(abs(reading-heading)<5){
+              digitalWrite(rightPin,LOW);
+              Serial.println("stopRight");
+              //delay(100000000000);
+              //delay(1000);
+              forward=true;
+              correctRight=false;              
+            }           
+          }
+          if(correctLeft){
+            //Serial.println("correctLeft");
+            digitalWrite(leftPin,HIGH);
+            if(abs(reading-heading)<5){
+              digitalWrite(leftPin,LOW);
+              Serial.println("stopLeft");
+              //delay(100000000000);
+              //delay(1000);
+              forward=true;
+              correctLeft=false;              
+            }   
+          }
+          lastreading=reading;
+      }
+    }
+}
+
+void loop() {
+    
+}
+
+void voiceCommands(){
+  
+  Serial.write(0xAA);
+  Serial.write(0x00);//Waiting
+  delay(100);
+  Serial.write(0xAA);
+  Serial.write(0x37);//Compact mode
+  delay(100);
+  Serial.write(0xAA);
+  Serial.write(0x00);//Waiting
+  delay(100);
+  Serial.write(0xAA);
+  Serial.write(0x21);//Import group 1
+    //destinations = [start, classrooms, elevator, bathroom, auditorium]
+  while(1)
+    {
+      digitalWrite(6,HIGH);
+      com = Serial.read();  //We receive the voice command and save it in the com byte 
+      Serial.println(com);
+      if(com == 0x11)//Command 1
+      {
+        Serial.println("Water fountain command acknowledged");
+        if(curlocation==1){
+          digitalWrite(6,HIGH);
+          delay(3000);
+          digitalWrite(6,LOW);
+        }
+        else{
+          digitalWrite(6,LOW);
+          getPath(1);
+          break;
+        }
+        
+      }
+  
+      if(com == 0x12)//Command 2
+      {
+        Serial.println("Classroom command acknowledged");
+        if(curlocation==2){
+          digitalWrite(6,HIGH);
+          delay(3000);
+          digitalWrite(6,LOW);
+        }
+        else{
+          digitalWrite(6,LOW);
+          getPath(2);
+          break;
+        }
+      }
+  
+      if(com == 0x13)//Command 3
+      {
+        Serial.println("Bathroom command acknowledged");
+        if(curlocation==4){
+          digitalWrite(6,HIGH);
+          delay(3000);
+          digitalWrite(6,LOW);
+        }
+        else{
+          digitalWrite(6,LOW);
+          getPath(3);
+          break;
+        }
+      }
+  
+      if(com == 0x14)//Command 4
+      {
+        Serial.println("Elevator command acknowledged");
+        if(curlocation==3){
+          digitalWrite(6,HIGH);
+          delay(3000);
+          digitalWrite(6,LOW);
+        }
+        else{
+          digitalWrite(6,LOW);
+          getPath(3);
+          break;
+        }
+      }
+  
+      if(com == 0x15)//Command 5
+      {
+        Serial.println("Auditorium command acknowledged");
+        if(curlocation==5){
+          digitalWrite(6,HIGH);
+          delay(3000);
+          digitalWrite(6,LOW);
+        }
+        else{
+          digitalWrite(6,LOW);
+          getPath(5);
+          break;
+        }
+      }
+      delay(1000);
+      digitalWrite(6,LOW);
+  }
+
+}
+
+void getPath(int destlocation){
+  digitalWrite(A0,HIGH);
+  digitalWrite(7,HIGH);
+  //int facing=EEPROM.read(0);
+  //int currentlocation=EEPROM.read(1);
+  Serial.println("getting path");
+  switch (curlocation) {
+      case 1:
+        
+        digitalWrite(9, HIGH);
+        delay(1000);
+        digitalWrite(9, LOW);
+        delay(1000);
+        break;
+      case 2:
+        digitalWrite(10, HIGH);
+        delay(1000);
+        digitalWrite(10, LOW);
+        delay(1000);
+        break;
+      case 3:
+        digitalWrite(11, HIGH);
+        delay(1000);
+        digitalWrite(11, LOW);
+        delay(1000);
+        break;
+      case 4:
+        digitalWrite(12, HIGH);
+        delay(1000);
+        digitalWrite(12, LOW);
+        delay(1000);
+        break;
+      case 5:
+        digitalWrite(13, HIGH);
+        delay(1000);
+        digitalWrite(13, LOW);
+        delay(1000);
+        break;
+    }
+  
+  digitalWrite(8, HIGH);
+  switch (destlocation) {
+      
+      case 1:
+        digitalWrite(9, HIGH);
+        delay(1000);
+        digitalWrite(9, LOW);
+        delay(1000);
+        break;
+      case 2:
+        digitalWrite(10, HIGH);
+        delay(1000);
+        digitalWrite(10, LOW);
+        delay(1000);
+        break;
+      case 3:
+        digitalWrite(11, HIGH);
+        delay(1000);
+        digitalWrite(11, LOW);
+        delay(1000);
+        break;
+      case 4:
+        digitalWrite(12, HIGH);
+        delay(1000);
+        digitalWrite(12, LOW);
+        delay(1000);
+        break;
+      case 5:
+        digitalWrite(13, HIGH);
+        delay(1000);
+        digitalWrite(13, LOW);
+        delay(1000);
+        break;
+    }
+  digitalWrite(8, LOW);
+  switch (facing) {
+      case 1:
+        digitalWrite(9, HIGH);
+        delay(1000);
+        digitalWrite(9, LOW);
+        delay(1000);
+        break;
+      case 2:
+        digitalWrite(10, HIGH);
+        delay(1000);
+        digitalWrite(10, LOW);
+        delay(1000);
+        break;
+      case 3:
+        digitalWrite(11, HIGH);
+        delay(1000);
+        digitalWrite(11, LOW);
+        delay(1000);
+        break;
+      case 4:
+        digitalWrite(12, HIGH);
+        delay(1000);
+        digitalWrite(12, LOW);
+        delay(1000);
+        break;
+      case 5:
+        digitalWrite(13, HIGH);
+        delay(1000);
+        digitalWrite(13, LOW);
+        delay(1000);
+        break;
+      case 6:
+        digitalWrite(9, HIGH);
+        digitalWrite(10, HIGH);
+        delay(1000);
+        digitalWrite(9, LOW);
+        digitalWrite(10, LOW);
+        delay(1000);
+        break;
+      case 7:
+        digitalWrite(11, HIGH);
+        digitalWrite(9, HIGH);
+        delay(1000);
+        digitalWrite(11, LOW);
+        digitalWrite(9, LOW);
+        delay(1000);
+        break;
+      case 0:
+        digitalWrite(12, HIGH);
+        digitalWrite(9, HIGH);
+        delay(1000);
+        digitalWrite(12, LOW);
+        digitalWrite(9, LOW);
+        delay(1000);
+        break;  
+    }
+  
+  int communication;
+  int countdata=0;
+  while(1){    
+    communication = pathFinderRecieve();
+    
+    
+    if(communication>80 || communication<0){
+      
+      break;
+    }
+    else{
+      data[countdata]=communication;
+      countdata=countdata+1;
+    }
+  }
+  
+  Serial.println("success");
+  digitalWrite(A0,LOW); 
+  
+  totalsteps=data[0]-40;
+  Serial.println(totalsteps);
+  
+  facing=data[countdata-1]-30;
+  Serial.println(facing);
+  turncounter=0;
+  
+  turndircounter=0;
+  
+  for(int turn=1;turn<countdata-1;turn++){
+    if(data[turn]>=10){
+      turns[turncounter]=data[turn]-10;
+      Serial.println(turns[turncounter]);
+      turncounter=turncounter+1;
+    }
+    else{
+      //commandlist=[forward,0,-135,1,-90,2,-45,3,45,4,90,5,135,6,180,7]
+      int turncommand = data[turn];
+      switch (turncommand) {
+        case 1:
+          turndir[turndircounter]=-135;
+          //Serial.println(turndir[turndircounter]);
+          turndircounter=turndircounter+1;
+          break;
+        case 2:
+          turndir[turndircounter]=-90;
+          //Serial.println(turndir[turndircounter]);
+          turndircounter=turndircounter+1;
+          break;
+        case 3:
+          turndir[turndircounter]=-45;
+          //Serial.println(turndir[turndircounter]);
+          turndircounter=turndircounter+1;
+          break;
+        case 4:
+          turndir[turndircounter]=45;
+          //Serial.println(turndir[turndircounter]);
+          turndircounter=turndircounter+1;
+          break;
+        case 5:
+          turndir[turndircounter]=90;
+          //Serial.println(turndir[turndircounter]);
+          turndircounter=turndircounter+1;
+          break;
+        case 6:
+          turndir[turndircounter]=135;
+          //Serial.println(turndir[turndircounter]);
+          turndircounter=turndircounter+1;
+          break;
+        case 7:
+          turndir[turndircounter]=180;
+          //Serial.println(turndir[turndircounter]);
+          turndircounter=turndircounter+1;
+          break;
+        
+        
+      }
+      
+      
+    }
+    
+  }
+  digitalWrite(7,LOW);
+}
+
+int pathFinderRecieve(){
+  
+  int sureness=15;
+  int tries[sureness];
+  while(mode==prevnum && mode!=-1){
+      for(int t=0;t<sureness;t++){
+      tries[t]=pathFinderGet();
+    }
+    int modetimes=0;
+    
+    for(int m=0;m<sureness;m++){
+      int numtimes=0;
+      for(int c=0;c<sureness;c++){
+        if(tries[c]==tries[m]){
+          numtimes=numtimes+1;
+        }
+      }
+      if(numtimes>modetimes){
+        modetimes=numtimes;
+        mode=tries[m];
+      }
+    }
+  }
+  prevnum=mode;
+  Serial.println(mode);
+  return mode;
+}
+
+int pathFinderGet(){
+  pinMode(A1, INPUT_PULLUP);
+  pinMode(A2, INPUT_PULLUP);
+  int change=0;
+  int number=0;
+  while(1){
+    while(digitalRead(A1)==0){
+      if(change==0){
+        number=number+1;
+        change=1;
+      }
+    }
+    change=0;
+    if(digitalRead(A2)==0){
+      return number-1;
+    }
+  } 
+}
+
+void idleMotor(){
+    digitalWrite(rightPin,HIGH);
+    delay(500);
+    digitalWrite(rightPin,LOW);
+    digitalWrite(leftPin,HIGH);
+    delay(1000);
+    digitalWrite(leftPin,LOW);
+    digitalWrite(rightPin,HIGH);
+    delay(500);
+    digitalWrite(rightPin,LOW);
+}

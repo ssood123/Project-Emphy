@@ -1,0 +1,173 @@
+typedef struct{
+    int x=1000;
+    int y=1000;
+    bool blocked;
+    int square_num;
+} Point;
+
+Point currentloc;
+Point dest;
+
+const int grid_sizex=10;
+const int grid_sizey=10;
+Point map_points[grid_sizex*grid_sizey]={};
+
+
+int pathx[grid_sizex*grid_sizey];
+int pathy[grid_sizex*grid_sizey];
+int cur_total_moves;
+
+int maze[grid_sizey][grid_sizex] = 
+       {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 1, 1, 1, 1, 1, 1, 0, 0},
+        {0, 0, 1, 1, 1, 1, 1, 1, 0, 0},
+        {0, 0, 1, 1, 1, 1, 1, 1, 0, 0},
+        {0, 0, 1, 1, 1, 1, 1, 1, 0, 0},
+        {0, 0, 1, 1, 1, 1, 1, 1, 0, 0},
+        {0, 0, 1, 1, 1, 1, 1, 1, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        };
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin (115200);
+  randomSeed(digitalRead(2));
+  Point p; 
+  
+  for (int i = 0; i < grid_sizey; i++){
+    for (int j = 0; j < grid_sizex; j++){
+      p.x = j;
+      p.y = i;
+      if(maze[i][j]!=0){
+        p.blocked=true;
+      }
+      else{
+        p.blocked=false;
+      }
+      //p.blocked = maze[i][j];
+      p.square_num=i*10+j;
+      map_points[i*10+j]=p;
+    }
+  }
+  Serial.print(map_points[99].x);
+    Serial.print(map_points[99].y);
+    Serial.println(" ");
+    Serial.println("--------");
+  Serial.println(" ");
+  Serial.println("%%%%%%");
+  pathFind(map_points[99],map_points[30]);
+  Serial.println("stop");
+  
+  //Serial.println(" ");
+  //Serial.print(pathx[cur_total_moves-1]);
+  //Serial.print(pathy[cur_total_moves-1]);
+  /*for (int k = 0; k < cur_total_moves; k++){
+    Serial.print(pathx[k]);
+    Serial.print(pathy[k]);
+    Serial.println(" ");
+    Serial.println("--------");
+  }*/
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+}
+
+void pathFind(Point cur, Point dest){
+  Point acceptablelocfilter[grid_sizex*grid_sizey];
+  int accloc=0;
+  Point a;
+  
+  for (int i = 0; i < grid_sizex*grid_sizey; i++){
+    a=map_points[i];
+    if(abs(a.x-cur.x)<=abs(cur.x-dest.x)&&abs(a.x-dest.x)<=abs(cur.x-dest.x)&&not(a.blocked)){
+      acceptablelocfilter[accloc]=a;
+      accloc=accloc+1;
+    }
+  }
+  Point acceptableloc[accloc];
+  for (int f = 0; f < accloc; f++){
+    acceptableloc[f]=acceptablelocfilter[f];
+  }
+  
+  Point path[accloc];
+  cur_total_moves=accloc;
+  
+  for(int pathrun=0; pathrun<1000; pathrun++){
+    //Serial.print(pathrun);
+    Point car=cur;
+    Point mymove;
+    Point try_path[accloc];
+    int total_moves=0;
+    Point prevmove;
+    while(car.square_num!=dest.square_num){
+      Point closer_next_moves[8];
+      int cnm;
+      for (int j = 0; j < accloc; j++){
+        mymove=acceptableloc[j];     
+
+        if(abs(mymove.x-car.x)<=1&&abs(mymove.y-car.y)<=1&&mymove.square_num!=car.square_num&&!(abs(mymove.x-prevmove.x)<=1&&abs(mymove.y-prevmove.y)<=1)){
+          /*Serial.print(mymove.x);
+          Serial.print(mymove.y);
+          Serial.println(" ");
+          Serial.println("--------");*/
+          closer_next_moves[cnm]=mymove;
+          cnm=cnm+1;
+        }
+      }
+      //Serial.println("***********");
+      if(cnm==0){
+        /*Serial.print(car.x);
+          Serial.print(car.y);
+          Serial.println(" ");
+          Serial.println("--------");*/
+        Serial.println("wall");
+        total_moves=accloc;
+        break;
+      }
+      int moveme = random(cnm);
+      
+      //Serial.println(" --------");
+      cnm=0;
+      prevmove=car;
+      car=closer_next_moves[moveme];
+      /*Serial.print(car.x);
+      Serial.print(car.y);
+      Serial.println(" ");
+      Serial.println("***********");*/
+      try_path[total_moves]=car;
+      
+      total_moves=total_moves+1;
+      if(total_moves>20){
+        break;
+      }
+      //Serial.print(car.x);
+      
+      //Serial.print(car.square_num==dest.square_num);
+    }
+    
+    if(total_moves<cur_total_moves){
+      
+      cur_total_moves=total_moves;
+      
+      for(int z=0; z<cur_total_moves; z++){
+        pathx[z]=try_path[z].x;
+        pathy[z]=try_path[z].y;
+        
+      }
+    }
+    //Serial.print(car.square_num);
+    //Serial.println("bookmark");
+  }
+  Serial.print(cur_total_moves);
+  for(int s=0; s<cur_total_moves; s++){
+    Serial.print(pathx[s]);
+    Serial.print(pathy[s]);
+    Serial.println(" ");
+    Serial.println("--------");
+  }
+
+  
+}

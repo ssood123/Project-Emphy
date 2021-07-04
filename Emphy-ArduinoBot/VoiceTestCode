@@ -1,0 +1,72 @@
+//Variables
+byte com = 0;
+
+void setup()
+{
+Serial.begin(9600);
+pinMode(A5, OUTPUT);
+pinMode(5, OUTPUT);
+digitalWrite(A5,HIGH);
+
+
+
+Serial.write(0xAA);
+Serial.write(0x00);//Waiting
+delay(100);
+Serial.write(0xAA);
+Serial.write(0x37);//Compact mode
+delay(100);
+Serial.write(0xAA);
+Serial.write(0x00);//Waiting
+delay(100);
+Serial.write(0xAA);
+Serial.write(0x21);//Import group 1
+while(1)
+  {
+     
+    com = Serial.read();  //We receive the voice command and save it in the com byte 
+    int holder=com;
+    Serial.println(holder);
+
+    if(holder<200){
+      Serial.println("here");
+      digitalWrite(5,1);
+    }
+    
+    if(com == 0x11)//LED1
+    {
+      digitalWrite(A1,HIGH);
+    }
+
+    if(com == 0x12)//LED2
+    {
+      digitalWrite(A1,HIGH);
+    }
+
+    if(com == 0x13)//LED3
+    {
+      digitalWrite(A1,HIGH);
+    }
+
+    if(com == 0x14)//LED4
+    {
+      digitalWrite(A1,HIGH);
+    }
+
+    if(com == 0x15)//LED5
+    {
+      digitalWrite(A1,HIGH);
+    }
+    delay(1000);
+}
+}
+
+
+
+
+
+void loop() // run over and over again
+{
+ //Serial.println(Serial.available());
+  
+}

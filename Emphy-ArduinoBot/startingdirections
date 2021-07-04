@@ -1,0 +1,16 @@
+#include <EEPROM.h>
+
+/** the current address in the EEPROM (i.e. which byte we're going to write to next) **/
+int facing = 0;
+int location = 1;
+
+String locations[4]={"classroom","bathroom","auditorium","elevators"};
+void setup() {
+  EEPROM.write(facing, 4);
+  EEPROM.write(location, 1);
+}
+
+void loop() {
+
+  
+}

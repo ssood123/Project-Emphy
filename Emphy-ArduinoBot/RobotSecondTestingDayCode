@@ -1,0 +1,576 @@
+#include <AFMotor.h>
+#include <Servo.h> 
+#include <EEPROM.h>
+
+#define MAX_DISTANCE_POSSIBLE 100 
+#define MAX_SPEED 160
+#define MOTORS_CALIBRATION_OFFSET 3
+#define COLL_DIST 20
+#define TURN_DIST COLL_DIST+10 
+#define trigPin A0
+#define echoPin A1
+
+AF_DCMotor leftFrontMotor(1, MOTOR12_8KHZ); 
+AF_DCMotor rightFrontMotor(2, MOTOR12_8KHZ); 
+AF_DCMotor rightBackMotor(3, MOTOR34_8KHZ); 
+AF_DCMotor leftBackMotor(4, MOTOR34_8KHZ);
+Servo headServo;
+
+int defaultSpeed = 168;
+int speedSetRight = defaultSpeed;
+int speedSetLeft = defaultSpeed;
+int facing;
+int pushed=0;
+int go=0;
+int buttoncount=0;
+int tour=0;
+int facingvec[6]={4,4,4,6,6,4};
+int count=0;
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(2000000);
+  headServo.attach(10);  
+  headServo.write(90); 
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(A4, INPUT_PULLUP);
+  pinMode(A3, INPUT_PULLUP);
+  pinMode(A2, OUTPUT);
+  pinMode(A5, OUTPUT);
+  leftFrontMotor.setSpeed(speedSetLeft);
+  rightFrontMotor.setSpeed(speedSetRight);
+  rightBackMotor.setSpeed(speedSetRight);
+  leftBackMotor.setSpeed(speedSetLeft);
+  //EEPROM.write(0, 4);
+  
+}
+
+void loop() {
+  headServo.write(45);
+  int testval=pingHead();
+  if(testval<60){
+    Serial.print(testval);
+    Serial.println(" ");
+    count=count+1;
+  }
+  
+  if(testval<60 && count==3){
+    count=0;
+    Serial.print(testval);
+    Serial.println(" ");
+    neg90();
+  }
+  else{
+    Serial.print(testval);
+    Serial.println(" ");
+    moveForward(1);
+    
+  }
+/*EEPROM.write(0, facingvec[tour]);
+  int turnangles[25][10]={ { },
+{ 10 },
+{ 20   , 90 , 10 },
+{ 22 , 45 , 5 , 45 , 17 },
+{ 10 },
+{ 10 },
+{ },
+{ 12 , -90 , 10 },
+{ 12 , -90 , 28 },
+{ 1 , -45 , 7 , 45 , 45 , 7 },
+{ 10 , 90 , 23 },
+{ 10 , 90 , 12 },
+{ },
+{ 17 },
+{ 15 , 90 , 20 , 45 , 2 , 45 , 7 },
+{ 17 , -45 , 5 , -45 , 22 },
+{ 28 , 90 , 12 },
+{ 17 },
+{ },
+{ 19 , -45 , 3 , -45 , 13 },
+{ 10 },
+{ 7 , -45 , 2 , -45 , 7 },
+{ 7 , -45 , 2 , -45 , 20 , -90 , 10 },
+{ 13 , 45 , 3 , 45 , 19 },
+{ },
+};
+int pathinfo[25]={0 ,1 ,3 ,5 ,1 ,1 ,0 ,3 ,3 ,6 ,3 ,3 ,0 ,1 ,7 ,5 ,3 ,1 ,0 ,5 ,1 ,5 ,7 ,5,0};
+
+int firstFace[25]={ 9 ,2 ,2 ,4 ,4 ,6 ,9 ,2 ,2 ,5 ,0 ,0 ,9 ,4 ,0 ,6 ,0 ,0 ,9 ,6 ,0 ,0 ,0 ,4 ,9 ,};
+
+int locations=5; 
+
+int fulltour[5]= {3,4,2,1,5};
+
+
+
+//["start","classroom","bathroom","auditorium","elevators"]
+int wait=0;
+if(tour==5){
+  moveStop(1000000000000);
+}
+facing = EEPROM.read(0);
+int starting= EEPROM.read(1);
+Serial.println("starting");
+Serial.println(starting);
+Serial.println("facing");
+Serial.println(facing);
+int mydest=0;
+int count=0;
+/*while(wait<4){
+  count=count+1;
+  Serial.println("button");
+  Serial.println(buttoncount);
+  Serial.println("starting: ");
+  Serial.println(starting);
+  digitalWrite(A5, HIGH);
+  delay(300);
+  digitalWrite(A5, LOW);
+  mydest=mydest+1;
+  if(mydest==starting){    
+    delay(1000);
+    //moveForward(0.1);
+    //moveBackward(0.1);
+    mydest=0;
+  }
+  
+  
+  
+  int sensorVal = analogRead(A3);
+  //Serial.println(sensorVal);
+  wait=wait+1;
+  //Serial.println(wait);
+  //leftFrontMotor.run(RELEASE); rightFrontMotor.run(RELEASE); rightBackMotor.run(RELEASE); leftBackMotor.run(RELEASE);
+  if(sensorVal<900){
+  pushed=1;
+  wait=0;
+  }
+if(pushed==1 && sensorVal>900){
+  Serial.print("pushed");
+  buttoncount=buttoncount+1;
+  pushed=0;
+  wait=0;
+}
+
+if (sensorVal == HIGH) {
+  digitalWrite(A2, LOW);
+} else {
+  digitalWrite(A2, HIGH);
+}
+if(buttoncount>5){
+  wait=0;
+  buttoncount=0;
+}
+if(buttoncount==0){
+  wait=0;
+}
+if(wait==3 && buttoncount==starting){
+  wait=0;
+  buttoncount=0;
+  pushed=0;
+  Serial.println("error");
+  int err=0;
+  while(err<10){
+    err=err+1;
+    digitalWrite(A5, HIGH);
+    delay(50);
+    digitalWrite(A5, LOW);
+    delay(50);
+    } 
+  }
+}
+//powerBoost();
+
+int ending= fulltour[tour]-1;
+
+Serial.println("dest: ");
+Serial.println(ending+1);
+//buttoncount=0;
+//wait=0;
+int indexer=(starting-1)*locations+ending;
+//powerBoost();
+int pathlength=pathinfo[indexer];
+int firstturn=calcFirstTurn(facing,firstFace[indexer]);
+Serial.println("first turn angle: ");
+Serial.println(firstturn);
+performTurn(firstturn);
+moveStop(2000);
+moveForward(1);
+int finishNav=0;
+for(int navstep=0;navstep<pathlength;navstep++){
+    int turn = turnangles[indexer][navstep];
+    if(turn%45!=0){
+      for(int t=0; t<turn; t++){
+        //String obj=objectDetection();
+        //if(obj!="clear"){
+        //  t=t+4;
+        //}
+        //if(pingHead()<20 && t%2==0){
+        //  pos45();
+        //}
+        
+        moveForward(1);
+        
+      }
+      
+      
+      //moveForward(turn);
+      
+    }
+    if(turn%45==0){
+      Serial.println("turning");
+      Serial.println(turn);
+      digitalWrite(A5, HIGH);
+      performTurn(turn);
+      trackFacing(facing,turn);
+      //moveStop(2000);
+      digitalWrite(A5, LOW);
+      moveForward(1); 
+    }  
+        
+} 
+if(finishNav==pathlength-1){
+  //EEPROM.write(0, facing);
+  EEPROM.write(1, ending+1); 
+}
+EEPROM.write(tour+2,facing);
+tour=tour+1;
+moveStop(3000);*/
+}
+
+void powerBoost(){
+  speedSetRight = 250;
+  speedSetLeft = 250;
+  moveForward(0.1);
+  speedSetRight = defaultSpeed;
+  speedSetLeft = defaultSpeed;
+}
+
+void performTurn(int angle){
+  
+  switch (angle) {
+    case 0:
+      break;
+    case 45:
+      pos45();
+      break;
+    case 90:
+      pos90();
+      break;
+    case 135:
+      pos135();
+      break;
+    case 180:
+      pos180();
+      break;
+    case -45:
+      neg45();
+      break;
+    case -90:
+      neg90();
+      break;
+    case -135:
+      neg135();
+      break;
+    }
+}
+
+void driftCorrection(){
+  leftFrontMotor.setSpeed(250);
+  leftBackMotor.setSpeed(250);
+  leftFrontMotor.run(BACKWARD); 
+  leftBackMotor.run(FORWARD);
+  delay(230);
+  moveStop(100);
+  leftFrontMotor.setSpeed(speedSetLeft);
+  rightFrontMotor.setSpeed(speedSetRight);
+  rightBackMotor.setSpeed(speedSetRight);
+  leftBackMotor.setSpeed(speedSetLeft);
+}
+
+int calcFirstTurn(int facing,int needtoface){
+  //String dir[8]={"north","northeast","east","southeast","south","southwest","west","northwest"};
+  int turn=0;
+  int difference=facing-needtoface;
+  if(difference>4){
+    turn=-45*(8-difference);
+  }
+  if(difference<-3){
+    turn=45*(8+difference);
+  }
+  if(-3<=difference<=4){
+    if(facing>needtoface){
+      turn=-45*needtoface;
+    }
+    else{
+      turn=45*difference;
+    }
+    
+  }
+  facing=needtoface;
+  return turn;  
+}
+
+void trackFacing(int curface,int turn){
+  //String dir[8]={"north","northeast","east","southeast","south","southwest","west","northwest"};
+  int jump=turn/45;
+  int changed=0;
+  if (facing==0 && turn<0){
+    facing=8+jump;
+    changed=1;
+  }
+  if(facing==7 && turn>0){
+    facing=jump;
+    changed=1;
+  }
+  if(changed==0){
+    facing=facing+jump;
+  }
+  
+}
+
+String evasion(String obstacle){
+  String movetype;
+  if(obstacle=="center"){
+    pos45();
+    if(pingHead()>50){
+      moveForward(2);
+      neg90();
+      moveForward(2);
+      pos45();
+      return movetype="diagonal";
+    }
+    else{
+      neg90();
+      if(pingHead()>50){
+        moveForward(2);
+        pos90();
+        moveForward(2);
+        neg45();
+        return movetype="diagonal";
+      }
+      else{
+        moveStop(100000000000000);
+      }
+    }
+  }
+
+  if(obstacle=="left"){
+    pos45();
+    if(pingHead()>50){
+        moveForward(2);
+        neg90();
+        moveForward(2);
+        pos45();
+        return movetype="diagonal";
+    }
+    else{
+      moveForward(4);
+      return movetype="straight";
+    }
+  }
+
+  if(obstacle=="right"){
+    neg45();
+    if(pingHead()>50){
+        moveForward(1);
+        pos90();
+        moveForward(1);
+        neg45();
+        return movetype="diagonal";
+    }
+    else{
+      moveForward(4);
+      return movetype="straight";
+    }
+  }
+}
+
+String objectDetection() {
+ int checkObstacle;
+ String movetype;
+ for (int servo_position = 0; servo_position <=180; servo_position +=1){
+    int checkObstacle = pingHead();
+    
+    if(checkObstacle<30){
+      if(-1<servo_position<61){
+        return movetype = evasion("right");
+      }
+      if(60<servo_position<121){
+        return movetype = evasion("center");
+      }
+      if(120<servo_position<181){
+        return movetype = evasion("left");
+      }
+    }
+    headServo.write(servo_position);
+    delay(10);
+  }
+
+  for (int servo_position=180; servo_position >= 0; servo_position -=1){
+    int checkObstacle = pingHead();
+    
+    if(checkObstacle<30){
+      if(-1<servo_position<61){
+        return movetype = evasion("right");
+      }
+      if(60<servo_position<121){
+        return movetype = evasion("center");
+      }
+      if(120<servo_position<181){
+        return movetype = evasion("left");
+      }
+    }
+    headServo.write(servo_position);
+    delay(10);
+  }
+  return "clear";
+}
+
+
+void neg90(){
+  leftFrontMotor.setSpeed(255);
+  rightFrontMotor.setSpeed(255);
+  leftBackMotor.setSpeed(255);
+  rightBackMotor.setSpeed(255);
+  leftFrontMotor.run(FORWARD);
+  rightFrontMotor.run(FORWARD);
+  leftBackMotor.run(BACKWARD);
+  rightBackMotor.run(FORWARD);
+  delay(365);
+  leftFrontMotor.setSpeed(speedSetLeft);
+  rightFrontMotor.setSpeed(speedSetRight);
+  leftBackMotor.setSpeed(speedSetLeft);
+}
+
+void neg45(){
+  leftFrontMotor.setSpeed(255);
+  rightFrontMotor.setSpeed(255);
+  leftBackMotor.setSpeed(255);
+  rightBackMotor.setSpeed(255);
+  leftFrontMotor.run(FORWARD);
+  rightFrontMotor.run(FORWARD);
+  leftBackMotor.run(BACKWARD);
+  rightBackMotor.run(FORWARD);
+  delay(260);
+  leftFrontMotor.setSpeed(speedSetLeft);
+  rightFrontMotor.setSpeed(speedSetRight);
+  leftBackMotor.setSpeed(speedSetLeft);
+}
+
+void neg135(){
+  leftFrontMotor.setSpeed(255);
+  rightFrontMotor.setSpeed(255);
+  leftBackMotor.setSpeed(255);
+  rightBackMotor.setSpeed(255);
+  leftFrontMotor.run(FORWARD);
+  rightFrontMotor.run(FORWARD);
+  leftBackMotor.run(BACKWARD);
+  rightBackMotor.run(FORWARD);
+  delay(450);
+  leftFrontMotor.setSpeed(speedSetLeft);
+  rightFrontMotor.setSpeed(speedSetRight);
+  leftBackMotor.setSpeed(speedSetLeft);
+}
+
+void pos90(){
+  leftFrontMotor.setSpeed(255);
+  rightFrontMotor.setSpeed(255);
+  leftBackMotor.setSpeed(255);
+  rightBackMotor.setSpeed(255);
+  leftFrontMotor.run(BACKWARD);
+  rightFrontMotor.run(BACKWARD);
+  leftBackMotor.run(FORWARD);
+  rightBackMotor.run(BACKWARD);
+  delay(370);
+  leftFrontMotor.setSpeed(speedSetLeft);
+  rightFrontMotor.setSpeed(speedSetRight);
+  leftBackMotor.setSpeed(speedSetLeft);
+}
+
+void pos45(){
+  leftFrontMotor.setSpeed(255);
+  rightFrontMotor.setSpeed(255);
+  leftBackMotor.setSpeed(255);
+  rightBackMotor.setSpeed(255);
+  leftFrontMotor.run(BACKWARD);
+  rightFrontMotor.run(BACKWARD);
+  leftBackMotor.run(FORWARD);
+  rightBackMotor.run(BACKWARD);
+  delay(290);
+  leftFrontMotor.setSpeed(speedSetLeft);
+  rightFrontMotor.setSpeed(speedSetRight);
+  leftBackMotor.setSpeed(speedSetLeft);
+}
+
+void pos135(){
+  leftFrontMotor.setSpeed(255);
+  rightFrontMotor.setSpeed(255);
+  leftBackMotor.setSpeed(255);
+  rightBackMotor.setSpeed(255);
+  leftFrontMotor.run(BACKWARD);
+  rightFrontMotor.run(BACKWARD);
+  leftBackMotor.run(FORWARD);
+  rightBackMotor.run(BACKWARD);
+  delay(360);
+  leftFrontMotor.setSpeed(speedSetLeft);
+  rightFrontMotor.setSpeed(speedSetRight);
+  leftBackMotor.setSpeed(speedSetLeft);
+}
+
+void pos180(){
+  pos90();
+  moveStop(2000);
+  pos90();
+}
+
+
+void moveStop(int timeStop) {leftFrontMotor.run(RELEASE); rightFrontMotor.run(RELEASE); rightBackMotor.run(RELEASE); leftBackMotor.run(RELEASE); delay(timeStop);}
+
+void moveBackward(float multiplier) {
+    leftFrontMotor.setSpeed(speedSetLeft);
+    rightFrontMotor.setSpeed(speedSetRight);
+    rightBackMotor.setSpeed(speedSetRight);
+    leftBackMotor.setSpeed(speedSetLeft);
+    leftFrontMotor.run(FORWARD);
+    rightFrontMotor.run(BACKWARD);
+    leftBackMotor.run(BACKWARD);
+    rightBackMotor.run(BACKWARD);
+    if (facing%2!=0){
+      delay(multiplier*1500);
+    }
+    else{
+      delay(multiplier*1000);
+    }
+}
+
+void moveForward(float multiplier) {
+    leftFrontMotor.setSpeed(speedSetLeft);
+    rightFrontMotor.setSpeed(speedSetRight);
+    rightBackMotor.setSpeed(speedSetRight);
+    leftBackMotor.setSpeed(speedSetLeft);
+    leftFrontMotor.run(BACKWARD);
+    rightFrontMotor.run(FORWARD);
+    leftBackMotor.run(FORWARD);
+    rightBackMotor.run(FORWARD);
+    if (facing%2!=0){
+      delay(multiplier*1750);
+    }
+    else{
+      delay(multiplier*1250);
+    }
+}
+
+long pingHead(){
+  int duration;
+  int distance;
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  duration = pulseIn(echoPin, HIGH);
+  distance = (duration/2) / 29.1;
+  
+  return distance;
+}

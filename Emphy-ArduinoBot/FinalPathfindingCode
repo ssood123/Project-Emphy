@@ -1,0 +1,518 @@
+#include <EEPROM.h>
+
+typedef struct{
+    int x=1000;
+    int y=1000;
+    bool blocked;
+    int square_num;
+} Point;
+
+Point dest;
+int facing=4;
+
+const int grid_sizex=15;
+const int grid_sizey=15;
+Point map_points[grid_sizex*grid_sizey]={};
+
+int cur_total_moves;
+
+int maze[grid_sizey][grid_sizex] = 
+       {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 
+        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0}, 
+        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0}, 
+        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0}, 
+        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0}, 
+        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0}, 
+        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0}, 
+        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0}, 
+        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0}, 
+        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0}, 
+        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0}, 
+        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0}, 
+        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0}, 
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin (115200);
+  randomSeed(digitalRead(2));
+  pinMode(6,INPUT_PULLUP);
+  pinMode(7,INPUT_PULLUP);
+  pinMode(8,INPUT_PULLUP);
+  pinMode(9,INPUT_PULLUP);
+  pinMode(10,INPUT_PULLUP);
+  pinMode(11,INPUT_PULLUP);
+  Point p; 
+  for (int i = 0; i < grid_sizey; i++){
+    for (int j = 0; j < grid_sizex; j++){
+      p.x = j;
+      p.y = i;
+      if(maze[j][i]!=0){
+        p.blocked=true;
+      }
+      else{
+        p.blocked=false;
+      }
+      //p.blocked = maze[i][j];
+      p.square_num=j*grid_sizey+i;
+      map_points[j*grid_sizey+i]=p;
+    }
+  }
+  int current;
+  while(1){
+    Serial.println("waiting for current location");
+    if(digitalRead(7)==1 && digitalRead(8)==0 && digitalRead(9)==0 && digitalRead(10)==0 && digitalRead(11)==0){
+      current=1;
+      break;
+    }
+    if(digitalRead(8)==1 && digitalRead(7)==0 && digitalRead(9)==0 && digitalRead(10)==0 && digitalRead(11)==0){
+      current=2;
+      break;
+    }
+    if(digitalRead(9)==1 && digitalRead(8)==0 && digitalRead(7)==0 && digitalRead(10)==0 && digitalRead(11)==0){
+      current=3;
+      break;
+    }
+    if(digitalRead(10)==1 && digitalRead(8)==0 && digitalRead(9)==0 && digitalRead(7)==0 && digitalRead(11)==0){
+      current=4;
+      break;
+    }
+    if(digitalRead(11)==1 && digitalRead(8)==0 && digitalRead(9)==0 && digitalRead(10)==0 && digitalRead(7)==0){
+      current=5;
+      break;
+    }
+  }
+  int destination;
+  while(1){
+    Serial.println("waiting for destination");
+    if(digitalRead(6)==1 && digitalRead(7)==1 && digitalRead(8)==0 && digitalRead(9)==0 && digitalRead(10)==0 && digitalRead(11)==0){
+      destination=1;
+      break;
+    }
+    if(digitalRead(6)==1 && digitalRead(8)==1 && digitalRead(7)==0 && digitalRead(9)==0 && digitalRead(10)==0 && digitalRead(11)==0){
+      destination=2;
+      break;
+    }
+    if(digitalRead(6)==1 && digitalRead(9)==1 && digitalRead(8)==0 && digitalRead(7)==0 && digitalRead(10)==0 && digitalRead(11)==0){
+      destination=3;
+      break;
+    }
+    if(digitalRead(6)==1 && digitalRead(10)==1 && digitalRead(8)==0 && digitalRead(9)==0 && digitalRead(7)==0 && digitalRead(11)==0){
+      destination=4;
+      break;
+    }
+    if(digitalRead(6)==1 && digitalRead(11)==1 && digitalRead(8)==0 && digitalRead(9)==0 && digitalRead(10)==0 && digitalRead(7)==0){
+      destination=5;
+      break;
+    }
+  }
+  while(1){
+    Serial.println("waiting for facing");
+    if(digitalRead(6)==0 && digitalRead(7)==1 && digitalRead(8)==0 && digitalRead(9)==0 && digitalRead(10)==0 && digitalRead(11)==0){
+      facing=1;
+      break;
+    }
+    if(digitalRead(6)==0 && digitalRead(8)==1 && digitalRead(7)==0 && digitalRead(9)==0 && digitalRead(10)==0 && digitalRead(11)==0){
+      facing=2;
+      break;
+    }
+    if(digitalRead(6)==0 && digitalRead(9)==1 && digitalRead(8)==0 && digitalRead(7)==0 && digitalRead(10)==0 && digitalRead(11)==0){
+      facing=3;
+      break;
+    }
+    if(digitalRead(6)==0 && digitalRead(10)==1 && digitalRead(8)==0 && digitalRead(9)==0 && digitalRead(7)==0 && digitalRead(11)==0){
+      facing=4;
+      break;
+    }
+    if(digitalRead(6)==0 && digitalRead(11)==1 && digitalRead(8)==0 && digitalRead(9)==0 && digitalRead(10)==0 && digitalRead(7)==0){
+      facing=5;
+      break;
+    }
+    if(digitalRead(6)==0 && digitalRead(7)==1 && digitalRead(8)==1 && digitalRead(9)==0 && digitalRead(10)==0 && digitalRead(11)==0){
+      facing=6;
+      break;
+    }
+    if(digitalRead(6)==0 && digitalRead(8)==0 && digitalRead(7)==1 && digitalRead(9)==1 && digitalRead(10)==0 && digitalRead(11)==0){
+      facing=7;
+      break;
+    }
+    if(digitalRead(6)==0 && digitalRead(9)==0 && digitalRead(8)==0 && digitalRead(7)==1 && digitalRead(10)==1 && digitalRead(11)==0){
+      facing=0;
+      break;
+    } 
+  }
+  Serial.print("current: ");
+  Serial.println(current);
+  Serial.print("destination: ");
+  Serial.println(destination);
+  Serial.print("facing: ");
+  Serial.println(facing);
+  fullPathFind(current,destination);
+  
+}
+
+void loop() {
+  Serial.println("location 1");
+  Serial.println(digitalRead(7));
+  Serial.println("location 2");
+  Serial.println(digitalRead(8));
+  Serial.println("location 3");
+  Serial.println(digitalRead(9));
+  Serial.println("location 4");
+  Serial.println(digitalRead(10));
+  Serial.println("location 5");
+  Serial.println(digitalRead(11));
+  delay(2000);
+}
+
+void fullPathFind(int startlocation,int destlocation){
+  int destinations[5]={0*grid_sizey+0,5*grid_sizey+0,0*grid_sizey+5,14*grid_sizey+5,14*grid_sizey+14};
+  //destinations = [start, classrooms, elevator, bathroom, auditorium]
+  int start=destinations[startlocation-1];
+  int dest=destinations[destlocation-1]; 
+  int turn1;
+  int turn2;
+  int turn3;
+  int turn4;
+  int turn5;
+  int turn6;
+  int turn7;
+  int turn8;
+  int turn9;
+  int turn10;
+  int turnstep1;
+  int turnstep2;
+  int turnstep3;
+  int turnstep4;
+  int turnstep5;
+  int turnstep6;
+  int turnstep7;
+  int turnstep8;
+  int turnstep9;
+  int turnstep10;
+  int endx;
+  int endy;
+  int saveface;
+  pathFind(map_points[start],map_points[dest], &turnstep1, &turn1, &turnstep2, &turn2, &turnstep3, &turn3, &turnstep4, &turn4, &turnstep5, &turn5, &endx, &endy, &saveface);
+  int savemoves=cur_total_moves;
+  if(endx*grid_sizey+endy!=start){
+    start=endx*grid_sizey+endy;
+    pathFind(map_points[start],map_points[dest], &turnstep6, &turn6, &turnstep7, &turn7, &turnstep8, &turn8, &turnstep9, &turn9, &turnstep10, &turn10, &endx, &endy, &saveface);
+  }  
+  int totalsteps = savemoves+cur_total_moves;
+  sendNumber(totalsteps);
+
+  int turnsteps[5]={turnstep1,turnstep2,turnstep3,turnstep4,turnstep5};
+  int turns[5]={turn1,turn2,turn3,turn4,turn5};
+  int purifiedturnsteps[6]={};
+  int purifiedturns[6]={};
+  int numturns=0;
+  for(int p=0;p<5;p++){
+    if(turnsteps[p]!=0){
+      purifiedturnsteps[numturns]=turnsteps[p];
+      purifiedturns[numturns]=turns[p];
+      numturns=numturns+1;
+    }
+  }
+  purifiedturnsteps[numturns]=saveface+30;
+  purifiedturns[numturns]=65;
+  //commandlist=[forward,0,-135,1,-90,2,-45,3,45,4,90,5,135,6,180,7]
+  for(int sending=0;sending<=numturns;sending++){
+    sendNumber(purifiedturnsteps[sending]);
+    Serial.println(purifiedturnsteps[sending]);
+    sendNumber(purifiedturns[sending]);
+    Serial.println(purifiedturns[sending]); 
+  }
+}
+
+int sendNumber(int number){
+  for(int f=0;f<20;f++){
+    pinMode(12, OUTPUT);
+    pinMode(13, OUTPUT);
+    digitalWrite(13,HIGH);
+    for(int pulse=0;pulse<=number;pulse++){
+      digitalWrite(12,LOW);
+      delay(5);
+      digitalWrite(12,HIGH);
+    }
+    digitalWrite(13,LOW);
+  }
+}
+
+void pathFind(Point cur, Point dest, int* turnstep1, int* turn1, int* turnstep2, int* turn2, int* turnstep3, int* turn3, int* turnstep4, int* turn4, int* turnstep5, int* turn5, int* endx, int* endy, int* face){
+  int pathx[grid_sizex*grid_sizey];
+  int pathy[grid_sizex*grid_sizey];
+  //String directions[8]={"north","northeast","east","southeast","south","southwest","west","northwest"};
+  Point acceptablelocfilter[grid_sizex*grid_sizey];
+  int accloc=0;
+  Point a;
+  for(int i = 0; i < grid_sizex*grid_sizey; i++){
+    a=map_points[i];
+    if(abs(a.x-cur.x)<=abs(cur.x-dest.x)&&abs(a.x-dest.x)<=abs(cur.x-dest.x)&&not(a.blocked)){
+      acceptablelocfilter[accloc]=a;
+      accloc=accloc+1;
+    }
+  }
+  Point acceptableloc[accloc];
+  for (int f = 0; f < accloc; f++){
+    acceptableloc[f]=acceptablelocfilter[f];
+  }
+  
+  Point path[accloc];
+  cur_total_moves=accloc;
+  
+  for(int pathrun=0; pathrun<500; pathrun++){
+    //Serial.print(pathrun);
+    Point car=cur;
+    Point mymove;
+    Point try_path[accloc];
+    int total_moves=0;
+    Point prevmove;
+    while(car.square_num!=dest.square_num){
+      Point closer_next_moves[8];
+      int cnm;
+      for (int j = 0; j < accloc; j++){
+        mymove=acceptableloc[j];     
+
+        if(abs(mymove.x-car.x)<=1&&abs(mymove.y-car.y)<=1&&mymove.square_num!=car.square_num&&!(abs(mymove.x-prevmove.x)<=1&&abs(mymove.y-prevmove.y)<=1)){
+          closer_next_moves[cnm]=mymove;
+          cnm=cnm+1;
+        }
+      }
+      if(cnm==0){
+        //Serial.println("wall");
+        total_moves=accloc;
+        break;
+      }
+      int moveme = random(cnm);
+      
+      //Serial.println(" --------");
+      cnm=0;
+      
+      prevmove=car;
+      car=closer_next_moves[moveme];
+      try_path[total_moves]=car;
+      total_moves=total_moves+1;
+      if(total_moves>20){
+        break;
+      }
+    } 
+    //Serial.println(total_moves);    
+    if(total_moves<cur_total_moves){ 
+      //Serial.print("here"); 
+      cur_total_moves=total_moves;
+      for(int z=0; z<total_moves; z++){
+        pathx[z]=try_path[z].x;
+        pathy[z]=try_path[z].y;
+      }
+    }
+  } 
+  for(int s=0;s<cur_total_moves;s++){
+    Serial.print(pathx[s]);
+    Serial.print(pathy[s]);
+    Serial.println("------------");
+  }
+  String finaldir[cur_total_moves]={}; 
+  
+  int xrel=pathx[0]-cur.x;
+  int yrel=pathy[0]-cur.y;
+  if (xrel==-1 && yrel==-1){
+    finaldir[0]="northwest";
+  }
+  if (xrel==-1 && yrel==-1){
+    finaldir[0]="northwest";
+  }
+  if (xrel==0 && yrel==-1){
+    finaldir[0]="north";
+  }
+  if (xrel==1 && yrel==-1){
+    finaldir[0]="northeast";
+  }
+  if (xrel==1 && yrel==0){
+    finaldir[0]="east";
+  }
+  if (xrel==1 && yrel==1){
+    finaldir[0]="southeast";
+  }
+  if (xrel==0 && yrel==1){
+    finaldir[0]="south";
+  }
+  if (xrel==-1 && yrel==1){
+    finaldir[0]="southwest";
+  }
+  if (xrel==-1 && yrel==0){
+    finaldir[0]="west";
+  }
+  for(int d=1; d<cur_total_moves; d++){
+      xrel=pathx[d]-pathx[d-1];
+      yrel=pathy[d]-pathy[d-1];
+      if (xrel==-1 && yrel==-1){
+        finaldir[d]="northwest";
+      }
+      if (xrel==0 && yrel==-1){
+        finaldir[d]="north";
+      }
+      if (xrel==1 && yrel==-1){
+        finaldir[d]="northeast";
+      }
+      if (xrel==1 && yrel==0){
+        finaldir[d]="east";
+      }
+      if (xrel==1 && yrel==1){
+        finaldir[d]="southeast";
+      }
+      if (xrel==0 && yrel==1){
+        finaldir[d]="south";
+      }
+      if (xrel==-1 && yrel==1){
+        finaldir[d]="southwest";
+      }
+      if (xrel==-1 && yrel==0){
+        finaldir[d]="west";
+      }
+    }
+
+  String directions[8]={"north","northeast","east","southeast","south","southwest","west","northwest"};
+  
+  int commandList[cur_total_moves]={};
+  for(int com=0;com<8;com++){
+    int firstcommand;
+    if(directions[com]==finaldir[0]){
+      int diff=com-facing;
+      if(diff>4){
+          diff=diff-8;
+        }
+      if(diff<-3){
+        diff=8+diff;
+      }
+      //commandlist=[0,forward,1,-135,2,-90,3,-45,4,45,5,90,6,135,7,180]
+      switch (diff) {
+          case 0:
+            commandList[0]=0; 
+            break;
+          case -3:
+            commandList[0]=1; 
+            break;
+          case -2:
+            commandList[0]=2; 
+            break;
+          case -1:
+            commandList[0]=3; 
+            break;
+          case 1:
+            commandList[0]=4; 
+            break;
+          case 2:
+            commandList[0]=5; 
+            break;
+          case 3:
+            commandList[0]=6; 
+            break;
+          case 4:
+            commandList[0]=7; 
+            break;
+        }
+    }
+  }
+  
+  for(int c=1; c<cur_total_moves; c++){
+    int current;
+    int next;
+    for(int com=0;com<8;com++){
+        if(directions[com]==finaldir[c-1]){
+          current=com;
+        }
+        if(directions[com]==finaldir[c]){
+          next=com;
+          EEPROM.write(0,com);
+        }
+        int diff=next-current;
+        if(diff>4){
+          diff=diff-8;
+        }
+        if(diff<-3){
+          diff=8+diff;
+        }
+        //commandlist=[forward,0,-135,1,-90,2,-45,3,45,4,90,5,135,6,180,7]
+        switch (diff) {
+          case 0:
+            commandList[c]=0; 
+            break;
+          case -3:
+            commandList[c]=1; 
+            break;
+          case -2:
+            commandList[c]=2; 
+            break;
+          case -1:
+            commandList[c]=3; 
+            break;
+          case 1:
+            commandList[c]=4; 
+            break;
+          case 2:
+            commandList[c]=5; 
+            break;
+          case 3:
+            commandList[c]=6; 
+            break;
+          case 4:
+            commandList[c]=7; 
+            break;
+        }
+      }
+  }
+  int turnsteps[5]={};
+  int turns[5]={};
+  int countstep=1;
+  *turnstep1=0;
+  *turn1=0;
+  *turnstep2=0;
+  *turn2=0;
+  *turnstep3=0;
+  *turn3=0;
+  *turnstep4=0;
+  *turn4=0;
+  *turnstep5=0;
+  *turn5=0;
+  for(int t=0;t<cur_total_moves;t++){
+    if(commandList[t]!=0){
+      if(countstep==1){
+        *turnstep1=t+10;
+        
+        *turn1=commandList[t];
+        
+      }
+      if(countstep==2){
+        *turnstep2=t+10;
+        
+        *turn2=commandList[t];
+      }
+      if(countstep==3){
+        *turnstep3=t+10;
+        *turn3=commandList[t];
+      }
+      if(countstep==4){
+        *turnstep4=t+10;
+        *turn4=commandList[t];
+      }
+      if(countstep==5){
+        *turnstep5=t+10;
+        *turn5=commandList[t];
+        
+      }
+      countstep=countstep+1;
+    }
+  }
+  *endx = pathx[cur_total_moves-1];
+  *endy = pathy[cur_total_moves-1];
+  for(int endface=0;endface<8;endface++){
+    if(directions[endface]==finaldir[cur_total_moves-1]){
+      facing=endface;
+      Serial.print("final face: ");
+      Serial.println(facing);
+    }
+  }
+  *face=facing;
+}
