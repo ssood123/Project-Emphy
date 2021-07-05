@@ -12,7 +12,7 @@ The design for OpenBot is shown below. It consists on 3D printed parts and off t
 
 The wiring and components images for the car below are taken from the OpenBot github.
 
-<img src="https://github.com/BostonUniversitySeniorDesign/21-07-Emphy/blob/main/Images/wiring_diagram.png" width=800>
+<img src="https://github.com/ssood123/Senior-Design-Project/blob/main/Images/wiring_diagram.png" width=800>
 <img src="https://github.com/BostonUniversitySeniorDesign/21-07-Emphy/blob/main/Images/diy_parts.jpg" width=400, align=left>
 <img src="https://github.com/BostonUniversitySeniorDesign/21-07-Emphy/blob/main/Images/chassis_motors_pcb.jpg" width=400>
 
