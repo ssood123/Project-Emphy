@@ -35,5 +35,6 @@ The purpose of the leash is to establish a way for the user to communicate with 
 The CAD files inside LeashBox folder is for the box attached to the leash. They are in stl format and can be used to 3D printed the box. The box’s dimension is 12x6x3 cm. The lid has two identical parts. On the lid there are two holes for the buttons and four holes on the corner which are placed for the screws to connect the lid and the box body. The box has two holes on the sides for vibration motor and a hole on the front for the wire to go through.
 The CAD is done using onShape.
 
+
 <img src="https://github.com/ssood123/Senior-Design-Project/blob/main/Images/leash.jpeg" width=400>
 <img src="https://github.com/ssood123/Senior-Design-Project/blob/main/Images/Leash_diagram.png" width=400>
